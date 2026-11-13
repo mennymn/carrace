@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steepest Descent Algorithm – Interactive Demo</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --ink: #1c2540;
+    --muted: #5b6480;
+    --accent: #2d5bd8;
+    --accent-dark: #1e44ab;
+    --good: #1f9d55;
+    --bad: #d64545;
+    --border: #e1e5f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    background: linear-gradient(120deg, #1e3a8a, #2d5bd8);
+    color: #fff;
+    padding: 22px 28px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p  { margin: 0; opacity: 0.9; }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(20, 30, 60, 0.05);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  .full { grid-column: 1 / -1; }
+
+  #plot {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: block;
+    border-radius: 6px;
+    cursor: crosshair;
+  }
+  .hint { font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
+
+  .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+  select, input[type=number] {
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: #fff;
+  }
+  input[type=range] { width: 100%; }
+  .inline { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 14px; }
+  button {
+    flex: 1;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent-dark); }
+  button.secondary { background: #e6eaf5; color: var(--ink); }
+  button.secondary:hover { background: #d5dbee; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    font-size: 0.92rem;
+    background: #f7f9fe;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .stats span:nth-child(odd) { color: var(--muted); }
+  .stats span:nth-child(even) { font-family: "Consolas", "Courier New", monospace; }
+
+  #message {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  #message.ok  { display: block; background: #e5f6ec; color: var(--good); }
+  #message.err { display: block; background: #fbe9e9; color: var(--bad); }
+
+  #chart { width: 100%; height: 200px; display: block; }
+
+  .table-wrap { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+  th { position: sticky; top: 0; background: #eef1f9; }
+  td { font-family: "Consolas", "Courier New", monospace; }
+
+  .theory { line-height: 1.6; font-size: 0.95rem; }
+  .theory ol { padding-left: 20px; }
+  .formula {
+    background: #f2f5fd;
+    border-left: 4px solid var(--accent);
+    padding: 8px 12px;
+    font-family: "Cambria Math", "Times New Roman", serif;
+    font-size: 1.05rem;
+    margin: 8px 0;
+  }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Steepest Descent Algorithm</h1>
+  <p>Watch the gradient method walk downhill to a minimum of f(x, y), step by step.</p>
+</header>
+
+<main>
+  <!-- Contour plot -->
+  <section class="card">
+    <h2>Contour plot of f(x, y)</h2>
+    <canvas id="plot" width="560" height="560"></canvas>
+    <div class="legend">
+      <span><i style="background:#22c55e"></i>Start x₀</span>
+      <span><i style="background:#ef4444"></i>Current xₖ</span>
+      <span><i style="background:#ffffff;border:2px solid #111"></i>Path</span>
+      <span><i style="background:#facc15"></i>−∇f direction</span>
+      <span>★ True minimum</span>
+    </div>
+    <p class="hint">Click anywhere on the plot to choose a new starting point.</p>
+  </section>
+
+  <!-- Controls -->
+  <section class="card">
+    <h2>Controls</h2>
+
+    <div class="row">
+      <label for="func">Objective function</label>
+      <select id="func">
+        <option value="quad">Circular bowl: f = x² + y²</option>
+        <option value="ellip" selected>Elongated bowl: f = x² + 10y²</option>
+        <option value="rosen">Rosenbrock: f = (1−x)² + 100(y−x²)²</option>
+        <option value="himmel">Himmelblau: f = (x²+y−11)² + (x+y²−7)²</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <label for="method">Step-size rule (αₖ)</label>
+      <select id="method">
+        <option value="exact" selected>Exact line search (minimise f along −∇f)</option>
+        <option value="armijo">Backtracking (Armijo rule)</option>
+        <option value="fixed">Fixed step size</option>
+      </select>
+    </div>
+
+    <div class="inline">
+      <div class="row">
+        <label for="alpha">Fixed α</label>
+        <input type="number" id="alpha" step="0.001" min="0" value="0.08">
+      </div>
+      <div class="row">
+        <label for="tol">Tolerance ‖∇f‖ &lt;</label>
+        <input type="number" id="tol" step="0.0001" min="0" value="0.0001">
+      </div>
+    </div>
+
+    <div class="inline">
+      <div class="row">
+        <label for="maxIter">Max iterations</label>
+        <input type="number" id="maxIter" min="1" value="500">
+      </div>
+      <div class="row">
+        <label for="speed">Animation speed</label>
+        <input type="range" id="speed" min="1" max="20" value="8">
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="stepBtn">Step ▸</button>
+      <button id="runBtn">Run ▶</button>
+      <button id="resetBtn" class="secondary">Reset</button>
+    </div>
+
+    <div class="stats">
+      <span>Iteration k</span>        <span id="sK">0</span>
+      <span>xₖ = (x, y)</span>        <span id="sX">–</span>
+      <span>f(xₖ)</span>              <span id="sF">–</span>
+      <span>∇f(xₖ)</span>             <span id="sG">–</span>
+      <span>‖∇f(xₖ)‖</span>           <span id="sGN">–</span>
+      <span>Last step αₖ</span>       <span id="sA">–</span>
+    </div>
+    <div id="message"></div>
+  </section>
+
+  <!-- Convergence chart -->
+  <section class="card">
+    <h2>Convergence: log₁₀ f(xₖ) vs iteration</h2>
+    <canvas id="chart" width="560" height="200"></canvas>
+  </section>
+
+  <!-- Iteration table -->
+  <section class="card">
+    <h2>Iteration table</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>k</th><th>x</th><th>y</th><th>f(x, y)</th><th>‖∇f‖</th><th>αₖ</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Theory -->
+  <section class="card full theory">
+    <h2>How steepest descent works</h2>
+    <p>
+      To minimise a differentiable function f(x), steepest descent moves at each step in the
+      direction in which f decreases fastest. That direction is the <b>negative gradient</b>, −∇f(x).
+    </p>
+    <div class="formula">x<sub>k+1</sub> = x<sub>k</sub> − α<sub>k</sub> ∇f(x<sub>k</sub>)</div>
+    <ol>
+      <li>Choose a starting point x<sub>0</sub> and a tolerance ε.</li>
+      <li>Compute the gradient g<sub>k</sub> = ∇f(x<sub>k</sub>). If ‖g<sub>k</sub>‖ &lt; ε, stop: x<sub>k</sub> is (approximately) a stationary point.</li>
+      <li>Set the search direction d<sub>k</sub> = −g<sub>k</sub>.</li>
+      <li>Choose a step size α<sub>k</sub> &gt; 0:
+        <ul>
+          <li><b>Exact line search</b>: α<sub>k</sub> = argmin<sub>α&gt;0</sub> f(x<sub>k</sub> + α d<sub>k</sub>). Here it is found numerically with golden-section search.</li>
+          <li><b>Armijo backtracking</b>: start at α = 1 and halve α until f(x<sub>k</sub> + α d<sub>k</sub>) ≤ f(x<sub>k</sub>) − c·α‖g<sub>k</sub>‖², with c = 10⁻⁴.</li>
+          <li><b>Fixed step</b>: the same α every time. If α is too large the iterates overshoot or diverge; if it is too small, progress is slow.</li>
+        </ul>
+      </li>
+      <li>Update x<sub>k+1</sub> = x<sub>k</sub> + α<sub>k</sub> d<sub>k</sub> and repeat from step 2.</li>
+    </ol>
+    <p>
+      <b>Things to try:</b> On the <i>circular bowl</i>, exact line search reaches the minimum in one step.
+      On the <i>elongated bowl</i> the path zig-zags, and with exact line search every step is
+      perpendicular to the previous one. This is the classic weakness of steepest descent on
+      ill-conditioned problems. On <i>Rosenbrock</i>, the iterates crawl slowly along the curved
+      valley. On <i>Himmelblau</i>, different starting points lead to different minima.
+    </p>
+  </section>
+</main>
+
+<script>
+/* ---------------- Objective functions ---------------- */
+const FUNCS = {
+  quad: {
+    f: (x, y) => x * x + y * y,
+    g: (x, y) => [2 * x, 2 * y],
+    xr: [-3, 3], yr: [-3, 3],
+    start: [2.4, 1.8], alpha: 0.1,
+    minima: [[0, 0]]
+  },
+  ellip: {
+    f: (x, y) => x * x + 10 * y * y,
+    g: (x, y) => [2 * x, 20 * y],
+    xr: [-3, 3], yr: [-3, 3],
+    start: [-2.6, 1.4], alpha: 0.08,
+    minima: [[0, 0]]
+  },
+  rosen: {
+    f: (x, y) => (1 - x) ** 2 + 100 * (y - x * x) ** 2,
+    g: (x, y) => [-2 * (1 - x) - 400 * x * (y - x * x), 200 * (y - x * x)],
+    xr: [-2, 2], yr: [-1, 3],
+    start: [-1.4, 2.2], alpha: 0.001,
+    minima: [[1, 1]]
+  },
+  himmel: {
+    f: (x, y) => (x * x + y - 11) ** 2 + (x + y * y - 7) ** 2,
+    g: (x, y) => [
+      4 * x * (x * x + y - 11) + 2 * (x + y * y - 7),
+      2 * (x * x + y - 11) + 4 * y * (x + y * y - 7)
+    ],
+    xr: [-5, 5], yr: [-5, 5],
+    start: [0.3, -4.2], alpha: 0.01,
+    minima: [[3, 2], [-2.805118, 3.131312], [-3.779310, -3.283186], [3.584428, -1.848126]]
+  }
+};
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const plot = $('plot'), pctx = plot.getContext('2d');
+const chart = $('chart'), cctx = chart.getContext('2d');
+const W = plot.width, H = plot.height;
+
+let F = FUNCS[$('func').value];
+let background = null;       // cached contour image
+let path = [];               // [{x, y, f, gn, a}]
+let timer = null;
+let finished = false;
+
+/* ---------------- Coordinate mapping ---------------- */
+const toPx = (x, y) => [
+  (x - F.xr[0]) / (F.xr[1] - F.xr[0]) * W,
+  H - (y - F.yr[0]) / (F.yr[1] - F.yr[0]) * H
+];
+const toXY = (px, py) => [
+  F.xr[0] + px / W * (F.xr[1] - F.xr[0]),
+  F.yr[0] + (H - py) / H * (F.yr[1] - F.yr[0])
+];
+
+/* ---------------- Colour map (viridis-like) ---------------- */
+const STOPS = [
+  [0.00, [68, 1, 84]], [0.25, [59, 82, 139]], [0.50, [33, 145, 140]],
+  [0.75, [94, 201, 98]], [1.00, [253, 231, 37]]
+];
+function colour(t) {
+  t = Math.min(1, Math.max(0, t));
+  for (let i = 1; i < STOPS.length; i++) {
+    if (t <= STOPS[i][0]) {
+      const [t0, c0] = STOPS[i - 1], [t1, c1] = STOPS[i];
+      const u = (t - t0) / (t1 - t0);
+      return c0.map((c, j) => c + u * (c1[j] - c));
+    }
+  }
+  return STOPS[STOPS.length - 1][1];
+}
+
+/* ---------------- Contour background ---------------- */
+function buildBackground() {
+  const vals = new Float32Array(W * H);
+  let vmax = -Infinity;
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      const [x, y] = toXY(i + 0.5, j + 0.5);
+      const v = Math.log(1 + F.f(x, y));     // log scale shows detail near the minimum
+      vals[j * W + i] = v;
+      if (v > vmax) vmax = v;
+    }
+  }
+  const LEVELS = 22;
+  const img = pctx.createImageData(W, H);
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      const k = j * W + i;
+      const t = vals[k] / vmax;
+      let [r, g, b] = colour(t);
+      // contour line where the level band changes between neighbouring pixels
+      const lvl = Math.floor(t * LEVELS);
+      const right = i < W - 1 ? Math.floor(vals[k + 1] / vmax * LEVELS) : lvl;
+      const down  = j < H - 1 ? Math.floor(vals[k + W] / vmax * LEVELS) : lvl;
+      if (lvl !== right || lvl !== down) { r *= 0.55; g *= 0.55; b *= 0.55; }
+      img.data[4 * k] = r; img.data[4 * k + 1] = g; img.data[4 * k + 2] = b; img.data[4 * k + 3] = 255;
+    }
+  }
+  background = document.createElement('canvas');
+  background.width = W; background.height = H;
+  background.getContext('2d').putImageData(img, 0, 0);
+}
+
+/* ---------------- Drawing ---------------- */
+function drawAxes() {
+  pctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  pctx.lineWidth = 1;
+  pctx.setLineDash([4, 4]);
+  if (F.xr[0] < 0 && F.xr[1] > 0) {
+    const [px] = toPx(0, 0);
+    pctx.beginPath(); pctx.moveTo(px, 0); pctx.lineTo(px, H); pctx.stroke();
+  }
+  if (F.yr[0] < 0 && F.yr[1] > 0) {
+    const [, py] = toPx(0, 0);
+    pctx.beginPath(); pctx.moveTo(0, py); pctx.lineTo(W, py); pctx.stroke();
+  }
+  pctx.setLineDash([]);
+  pctx.fillStyle = 'rgba(255,255,255,0.85)';
+  pctx.font = '12px system-ui';
+  pctx.fillText(`x ∈ [${F.xr[0]}, ${F.xr[1]}]`, 8, H - 8);
+  pctx.fillText(`y ∈ [${F.yr[0]}, ${F.yr[1]}]`, 8, 16);
+}
+
+function star(cx, cy, r) {
+  pctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI / 2 + i * Math.PI / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pctx.lineTo(cx + rr * Math.cos(ang), cy + rr * Math.sin(ang));
+  }
+  pctx.closePath();
+  pctx.fillStyle = '#fff'; pctx.fill();
+  pctx.strokeStyle = '#111'; pctx.lineWidth = 1.2; pctx.stroke();
+}
+
+function arrow(x0, y0, x1, y1) {
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  pctx.strokeStyle = '#facc15'; pctx.fillStyle = '#facc15'; pctx.lineWidth = 3;
+  pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke();
+  pctx.beginPath();
+  pctx.moveTo(x1, y1);
+  pctx.lineTo(x1 - 11 * Math.cos(ang - 0.4), y1 - 11 * Math.sin(ang - 0.4));
+  pctx.lineTo(x1 - 11 * Math.cos(ang + 0.4), y1 - 11 * Math.sin(ang + 0.4));
+  pctx.closePath(); pctx.fill();
+}
+
+function drawPlot() {
+  pctx.drawImage(background, 0, 0);
+  drawAxes();
+  F.minima.forEach(([mx, my]) => { const [px, py] = toPx(mx, my); star(px, py, 9); });
+
+  if (!path.length) return;
+
+  // path line
+  pctx.strokeStyle = '#fff'; pctx.lineWidth = 2;
+  pctx.beginPath();
+  path.forEach((p, i) => {
+    const [px, py] = toPx(p.x, p.y);
+    i ? pctx.lineTo(px, py) : pctx.moveTo(px, py);
+  });
+  pctx.stroke();
+
+  // iterate dots
+  path.forEach((p, i) => {
+    const [px, py] = toPx(p.x, p.y);
+    pctx.beginPath(); pctx.arc(px, py, i === 0 ? 6 : 3, 0, 2 * Math.PI);
+    pctx.fillStyle = i === 0 ? '#22c55e' : '#fff';
+    pctx.fill(); pctx.strokeStyle = '#111'; pctx.lineWidth = 1; pctx.stroke();
+  });
+
+  // current point + negative gradient arrow
+  const c = path[path.length - 1];
+  const [cx, cy] = toPx(c.x, c.y);
+  const [gx, gy] = F.g(c.x, c.y);
+  const gn = Math.hypot(gx, gy);
+  if (gn > 1e-12 && !finished) {
+    // direction in pixel space (y axis is flipped)
+    const sx = W / (F.xr[1] - F.xr[0]), sy = H / (F.yr[1] - F.yr[0]);
+    let dx = -gx * sx, dy = gy * sy;
+    const len = Math.hypot(dx, dy);
+    dx = dx / len * 45; dy = dy / len * 45;
+    arrow(cx, cy, cx + dx, cy + dy);
+  }
+  pctx.beginPath(); pctx.arc(cx, cy, 7, 0, 2 * Math.PI);
+  pctx.fillStyle = '#ef4444'; pctx.fill();
+  pctx.strokeStyle = '#fff'; pctx.lineWidth = 2; pctx.stroke();
+}
+
+function drawChart() {
+  const cw = chart.width, ch = chart.height;
+  const pad = { l: 46, r: 12, t: 12, b: 28 };
+  cctx.clearRect(0, 0, cw, ch);
+  cctx.fillStyle = '#fff'; cctx.fillRect(0, 0, cw, ch);
+
+  const vals = path.map(p => Math.log10(Math.max(p.f, 1e-16)));
+  const n = Math.max(vals.length - 1, 1);
+  let lo = Math.min(...vals, 0), hi = Math.max(...vals, 1);
+  lo = Math.floor(lo); hi = Math.ceil(hi);
+  if (hi === lo) hi = lo + 1;
+
+  const X = k => pad.l + k / n * (cw - pad.l - pad.r);
+  const Y = v => pad.t + (hi - v) / (hi - lo) * (ch - pad.t - pad.b);
+
+  // grid + labels
+  cctx.strokeStyle = '#e8ebf3'; cctx.fillStyle = '#5b6480'; cctx.font = '11px system-ui';
+  cctx.lineWidth = 1;
+  const stepY = Math.max(1, Math.ceil((hi - lo) / 6));
+  for (let v = lo; v <= hi; v += stepY) {
+    cctx.beginPath(); cctx.moveTo(pad.l, Y(v)); cctx.lineTo(cw - pad.r, Y(v)); cctx.stroke();
+    cctx.textAlign = 'right'; cctx.fillText(v, pad.l - 6, Y(v) + 4);
+  }
+  cctx.textAlign = 'center';
+  const stepX = Math.max(1, Math.ceil(n / 8));
+  for (let k = 0; k <= n; k += stepX) cctx.fillText(k, X(k), ch - 10);
+
+  cctx.strokeStyle = '#c3c9da';
+  cctx.beginPath(); cctx.moveTo(pad.l, pad.t); cctx.lineTo(pad.l, ch - pad.b); cctx.lineTo(cw - pad.r, ch - pad.b); cctx.stroke();
+
+  if (!vals.length) return;
+  cctx.strokeStyle = '#2d5bd8'; cctx.lineWidth = 2;
+  cctx.beginPath();
+  vals.forEach((v, k) => k ? cctx.lineTo(X(k), Y(v)) : cctx.moveTo(X(k), Y(v)));
+  cctx.stroke();
+  if (vals.length < 60) {
+    cctx.fillStyle = '#2d5bd8';
+    vals.forEach((v, k) => { cctx.beginPath(); cctx.arc(X(k), Y(v), 2.5, 0, 2 * Math.PI); cctx.fill(); });
+  }
+}
+
+/* ---------------- Stats + table ---------------- */
+const fmt = v => Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(3) : v.toFixed(5);
+
+function updateStats() {
+  const c = path[path.length - 1];
+  const [gx, gy] = F.g(c.x, c.y);
+  $('sK').textContent = path.length - 1;
+  $('sX').textContent = `(${fmt(c.x)}, ${fmt(c.y)})`;
+  $('sF').textContent = fmt(c.f);
+  $('sG').textContent = `(${fmt(gx)}, ${fmt(gy)})`;
+  $('sGN').textContent = fmt(c.gn);
+  $('sA').textContent = c.a == null ? '–' : fmt(c.a);
+}
+
+function addRow(p, k) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${k}</td><td>${fmt(p.x)}</td><td>${fmt(p.y)}</td><td>${fmt(p.f)}</td><td>${fmt(p.gn)}</td><td>${p.a == null ? '–' : fmt(p.a)}</td>`;
+  $('tbody').appendChild(tr);
+  const wrap = $('tbody').closest('.table-wrap');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showMessage(text, kind) {
+  const m = $('message');
+  m.textContent = text;
+  m.className = kind;
+}
+
+/* ---------------- Step-size rules ---------------- */
+function exactLineSearch(x, y, dx, dy) {
+  const phi = a => F.f(x + a * dx, y + a * dy);
+  // bracket the minimum along the ray
+  let b = 1e-6;
+  while (phi(2 * b) < phi(b) && b < 1e6) b *= 2;
+  let lo = 0, hi = 2 * b;
+  // golden-section search on [lo, hi]
+  const r = (Math.sqrt(5) - 1) / 2;
+  let c = hi - r * (hi - lo), d = lo + r * (hi - lo);
+  let fc = phi(c), fd = phi(d);
+  for (let i = 0; i < 80; i++) {
+    if (fc < fd) { hi = d; d = c; fd = fc; c = hi - r * (hi - lo); fc = phi(c); }
+    else         { lo = c; c = d; fc = fd; d = lo + r * (hi - lo); fd = phi(d); }
+  }
+  return (lo + hi) / 2;
+}
+
+function armijo(x, y, dx, dy, gn2) {
+  const f0 = F.f(x, y), c1 = 1e-4;
+  let a = 1;
+  while (F.f(x + a * dx, y + a * dy) > f0 - c1 * a * gn2 && a > 1e-12) a *= 0.5;
+  return a;
+}
+
+/* ---------------- One iteration ---------------- */
+function step() {
+  if (finished || !path.length) return false;
+  const tol = parseFloat($('tol').value) || 1e-4;
+  const maxIter = parseInt($('maxIter').value) || 500;
+  const c = path[path.length - 1];
+
+  if (c.gn < tol) {
+    finish(`Converged: ‖∇f‖ = ${fmt(c.gn)} < ${tol} after ${path.length - 1} iterations.`, 'ok');
+    return false;
+  }
+  if (path.length - 1 >= maxIter) {
+    finish(`Stopped: reached the maximum of ${maxIter} iterations (‖∇f‖ = ${fmt(c.gn)}).`, 'err');
+    return false;
+  }
+
+  const [gx, gy] = F.g(c.x, c.y);
+  const dx = -gx, dy = -gy;                      // steepest descent direction
+  const method = $('method').value;
+  let a;
+  if (method === 'exact')       a = exactLineSearch(c.x, c.y, dx, dy);
+  else if (method === 'armijo') a = armijo(c.x, c.y, dx, dy, gx * gx + gy * gy);
+  else                          a = parseFloat($('alpha').value) || 0.01;
+
+  const nx = c.x + a * dx, ny = c.y + a * dy;
+  const nf = F.f(nx, ny);
+  if (!isFinite(nf) || Math.abs(nx) > 1e6 || Math.abs(ny) > 1e6) {
+    finish('Diverged: the step size is too large for this function. Try a smaller fixed α or a line search.', 'err');
+    return false;
+  }
+  const [ngx, ngy] = F.g(nx, ny);
+  const p = { x: nx, y: ny, f: nf, gn: Math.hypot(ngx, ngy), a };
+  path.push(p);
+  addRow(p, path.length - 1);
+  updateStats();
+  drawPlot();
+  drawChart();
+
+  if (p.gn < tol) {
+    finish(`Converged: ‖∇f‖ = ${fmt(p.gn)} < ${tol} after ${path.length - 1} iterations.`, 'ok');
+    return false;
+  }
+  return true;
+}
+
+function finish(text, kind) {
+  finished = true;
+  stopRun();
+  showMessage(text, kind);
+  $('stepBtn').disabled = true;
+  $('runBtn').disabled = true;
+  drawPlot();
+}
+
+/* ---------------- Run / reset ---------------- */
+function startRun() {
+  if (finished) return;
+  $('runBtn').textContent = 'Pause ❚❚';
+  const tick = () => {
+    if (!step()) return;
+    timer = setTimeout(tick, 420 - 20 * $('speed').value);
+  };
+  tick();
+}
+
+function stopRun() {
+  clearTimeout(timer);
+  timer = null;
+  $('runBtn').textContent = 'Run ▶';
+}
+
+function reset(start) {
+  stopRun();
+  finished = false;
+  $('stepBtn').disabled = false;
+  $('runBtn').disabled = false;
+  $('message').className = '';
+  $('message').textContent = '';
+  $('tbody').innerHTML = '';
+  const [x, y] = start || F.start;
+  const [gx, gy] = F.g(x, y);
+  path = [{ x, y, f: F.f(x, y), gn: Math.hypot(gx, gy), a: null }];
+  addRow(path[0], 0);
+  updateStats();
+  drawPlot();
+  drawChart();
+}
+
+/* ---------------- Events ---------------- */
+$('stepBtn').onclick = () => { stopRun(); step(); };
+$('runBtn').onclick  = () => timer ? stopRun() : startRun();
+$('resetBtn').onclick = () => reset();
+
+$('func').onchange = () => {
+  F = FUNCS[$('func').value];
+  $('alpha').value = F.alpha;
+  $('method').value = $('func').value === 'rosen' ? 'armijo' : 'exact';
+  buildBackground();
+  reset();
+};
+$('method').onchange = () => reset(path.length ? [path[0].x, path[0].y] : null);
+
+plot.addEventListener('click', e => {
+  const rect = plot.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * W / rect.width;
+  const py = (e.clientY - rect.top) * H / rect.height;
+  reset(toXY(px, py));
+});
+
+/* ---------------- Init ---------------- */
+$('alpha').value = F.alpha;
+buildBackground();
+reset();
+</script>
+</body>
+</html>
